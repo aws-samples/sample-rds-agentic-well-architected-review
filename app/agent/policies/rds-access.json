@@ -1,0 +1,17 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "RDSReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "rds:Describe*",
+                "rds:List*",
+                "rds:DownloadDBLogFilePortion",
+                "rds:DownloadCompleteDBLogFile",
+                "rds-db:connect"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

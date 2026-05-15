@@ -1,0 +1,41 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# ── Node / CDK ───────────────────────────────────────────────────────────────
+node_modules/
+cdk.out/
+*.js.map
+*.d.ts
+
+# ── Secrets & Environment ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Generated deployment configs (contain account IDs, ARNs, secrets) ────────
+app/agent/mcp_lambdas_config.json
+app/agent/gateway_config.json
+app/agent/output.json
+
+# ── IDE & OS ─────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── AgentCore CLI internals ──────────────────────────────────────────────────
+agentcore/.cli/logs/
+
+# ── Reports (generated at runtime) ──────────────────────────────────────────
+reports/

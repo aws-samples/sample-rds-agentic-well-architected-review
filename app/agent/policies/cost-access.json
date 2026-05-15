@@ -1,0 +1,59 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "CostExplorerAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ce:Get*",
+                "ce:List*",
+                "ce:Describe*"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "BudgetsAccess",
+            "Effect": "Allow",
+            "Action": [
+                "budgets:View*",
+                "budgets:Describe*",
+                "budgets:List*"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ComputeOptimizerAccess",
+            "Effect": "Allow",
+            "Action": [
+                "compute-optimizer:Get*",
+                "compute-optimizer:Describe*"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SavingsPlansAccess",
+            "Effect": "Allow",
+            "Action": [
+                "savingsplans:Describe*"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "PricingAccess",
+            "Effect": "Allow",
+            "Action": [
+                "pricing:GetProducts"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CostOptimizationHubAccess",
+            "Effect": "Allow",
+            "Action": [
+                "cost-optimization-hub:Get*",
+                "cost-optimization-hub:List*"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

@@ -1,0 +1,69 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "CloudWatchAccess",
+            "Effect": "Allow",
+            "Action": [
+                "cloudwatch:Get*",
+                "cloudwatch:List*",
+                "cloudwatch:Describe*",
+                "cloudwatch:GenerateQuery",
+                "cloudwatch:GenerateQueryResultsSummary",
+                "cloudwatch:BatchGet*"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CloudWatchLogsAccess",
+            "Effect": "Allow",
+            "Action": [
+                "logs:Get*",
+                "logs:List*",
+                "logs:Describe*",
+                "logs:FilterLogEvents",
+                "logs:StartQuery",
+                "logs:StopQuery",
+                "logs:StartLiveTail",
+                "logs:StopLiveTail",
+                "logs:TestMetricFilter",
+                "logs:TestTransformer",
+                "logs:Unmask"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "EC2SecurityGroupAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeSecurityGroup*",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeSecondarySubnets",
+                "ec2:GetSecurityGroupsForVpc",
+                "ec2:GetSubnetCidrReservations"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CloudFormationAccess",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:ListResources",
+                "cloudformation:GetResource",
+                "cloudformation:GetResourceRequestStatus",
+                "cloudformation:ListResourceRequests"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "LambdaBasicExecution",
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:*:*:log-group:/aws/lambda/*"
+        }
+    ]
+}

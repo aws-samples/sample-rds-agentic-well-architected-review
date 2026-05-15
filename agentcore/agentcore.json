@@ -7,11 +7,30 @@
     "agentcore:created-by": "agentcore-cli",
     "agentcore:project-name": "rdsAgenticWAR"
   },
-  "runtimes": [],
+  "runtimes": [
+    {
+      "name": "agent",
+      "build": "CodeZip",
+      "entrypoint": "main.py",
+      "codeLocation": "app/agent/",
+      "runtimeVersion": "PYTHON_3_14",
+      "networkMode": "PUBLIC",
+      "protocol": "HTTP"
+    }
+  ],
   "memories": [],
   "credentials": [],
   "evaluators": [],
   "onlineEvalConfigs": [],
-  "agentCoreGateways": [],
+  "agentCoreGateways": [
+    {
+      "name": "rdsAgenticWAR",
+      "description": "Gateway for rdsAgenticWAR",
+      "targets": [],
+      "authorizerType": "NONE",
+      "enableSemanticSearch": true,
+      "exceptionLevel": "NONE"
+    }
+  ],
   "policyEngines": []
 }
