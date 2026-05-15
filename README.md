@@ -1,11 +1,11 @@
 <!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
 <!-- SPDX-License-Identifier: MIT-0 -->
 
-# RDS/Aurora Agentic Well-Architected Review
+# Amazon RDS/Aurora Agentic Well-Architected Review
 
 ## Overview
 
-The RDS Agentic WAR is a multi-agent system that performs automated Well-Architected Reviews for Amazon RDS and Aurora databases. Built on the Model Context Protocol (MCP) and powered by Anthropic Claude models via Amazon Bedrock, this system uses specialized AI agents that collaborate to analyze five Well-Architected pillars (Performance, Security, Reliability, Cost Optimization, Operational Excellence) and generate a consolidated executive-ready Word document report. The AgentCore Gateway provides secure access to AWS data sources available as MCP tools.
+The RDS Agentic WAR is a multi-agent system that performs automated Well-Architected Reviews for Amazon Relational Database Service (Amazon RDS) and Amazon Aurora databases. Built on the Model Context Protocol (MCP) and powered by Anthropic Claude models via Amazon Bedrock, this system uses specialized AI agents that collaborate to analyze five Well-Architected pillars (Performance, Security, Reliability, Cost Optimization, Operational Excellence) and generate a consolidated executive-ready Word document report. The Amazon Bedrock AgentCore Gateway provides secure access to AWS data sources available as MCP tools.
 
 ### Use case details
 
@@ -13,7 +13,7 @@ The RDS Agentic WAR is a multi-agent system that performs automated Well-Archite
 |---|---|
 | Use case type | Conversational |
 | Agent type | Multi-agent (Coordinator + 5 pillar agents + Report Generator) |
-| Use case components | Tools (MCP-based), CloudWatch, Cost Explorer, RDS/Aurora, Documentation |
+| Use case components | Tools (MCP-based), Amazon CloudWatch, AWS Cost Explorer, Amazon RDS/Aurora, AWS Documentation |
 | Use case vertical | Database Operations / Well-Architected Reviews |
 | Example complexity | Advanced |
 | SDK used | Amazon Bedrock AgentCore SDK, Strands Agents, MCP |
@@ -38,12 +38,12 @@ The RDS Agentic WAR is a multi-agent system that performs automated Well-Archite
 |---|---|
 | Python 3.12+ | Python runtime |
 | uv | Python package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/)) |
-| Node.js 20.x+ | Required for CDK infrastructure |
+| Node.js 20.x+ | Required for AWS Cloud Development Kit (AWS CDK) infrastructure |
 | Docker | For building MCP server container images |
 | AWS CLI | Configured with credentials (`aws configure`) |
 | AgentCore CLI | `npm install -g @aws/agentcore-cli` |
 | Amazon Bedrock access | Claude models enabled in your region |
-| RDS/Aurora IAM auth or Data API | Target databases must have [IAM database authentication](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.html) or [RDS Data API](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/data-api.html) enabled for the agent to run database-level queries |
+| Amazon RDS/Aurora IAM auth or Data API | Target databases must have [IAM database authentication](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.html) or [Amazon RDS Data API](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/data-api.html) enabled for the agent to run database-level queries |
 
 ## Use case setup
 
@@ -67,7 +67,7 @@ cp .env.example .env  # Or create .env manually
 #   AWS_PROFILE_LLM=your-aws-profile  (optional, uses default creds if empty)
 #   BEDROCK_MODEL_ID=anthropic.claude-sonnet-4-20250514-v1:0
 
-# Step 1: Deploy MCP server Lambda functions (builds Docker images, pushes to ECR)
+# Step 1: Deploy MCP server Lambda functions (builds Docker images, pushes to Amazon ECR)
 python deploy_mcp_lambdas.py
 
 # Step 2: Create the AgentCore Gateway (Cognito + Gateway + target registration)
@@ -169,14 +169,14 @@ agentcore logs
 | Environment Variable | Description | Default |
 |---|---|---|
 | `AWS_REGION` | AWS region for all resources | `us-east-1` |
-| `AWS_PROFILE_LLM` | AWS profile for Bedrock calls | (default credentials) |
-| `BEDROCK_MODEL_ID` | Bedrock model for agents | `anthropic.claude-sonnet-4-20250514-v1:0` |
+| `AWS_PROFILE_LLM` | AWS profile for Amazon Bedrock calls | (default credentials) |
+| `BEDROCK_MODEL_ID` | Amazon Bedrock model for agents | `anthropic.claude-sonnet-4-20250514-v1:0` |
 | `GATEWAY_URL` | AgentCore Gateway endpoint | (required — set after setup) |
 | `REPORTS_DIR` | Output directory for reports | `~/reports` |
 
 ## AgentCore Observability
 
-When deployed to AgentCore Runtime, the agent automatically integrates with Amazon CloudWatch for comprehensive monitoring through the observability primitive.
+When deployed to Amazon Bedrock AgentCore Runtime, the agent automatically integrates with Amazon CloudWatch for comprehensive monitoring through the observability primitive.
 
 ### Viewing Metrics and Traces
 
@@ -184,7 +184,7 @@ Once deployed with observability enabled, you can monitor your agent's performan
 
 - **Amazon CloudWatch Metrics**: View request rates, latencies, and error rates
 - **AWS X-Ray Traces**: Analyze distributed traces to understand request flow across the Coordinator and pillar agents
-- **CloudWatch Logs**: Access structured logs for debugging and analysis
+- **Amazon CloudWatch Logs**: Access structured logs for debugging and analysis
 
 The observability primitive automatically captures:
 - LLM invocation metrics (tokens, latency, model usage)
@@ -204,62 +204,97 @@ For more details, see the [Amazon Bedrock AgentCore observability documentation]
 
 ### Cross-Account Resource Review
 
-To analyze RDS/Aurora resources in a different AWS account (Account B) from where the agent is deployed (Account A):
+To analyze Amazon RDS/Aurora resources in a different AWS account (Account B) from where the agent is deployed (Account A), follow these steps in priority order:
 
-**1. In Account A — Update the Gateway IAM Role trust policy to allow assuming a role in Account B:**
+#### Step 1 (CRITICAL — Do First): Create the role in Account B
 
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "AllowCrossAccountAssume",
-            "Effect": "Allow",
-            "Action": "sts:AssumeRole",
-            "Resource": "arn:aws:iam::<ACCOUNT_B_ID>:role/RdsAgenticWAR-CrossAccountRole"
-        }
-    ]
-}
-```
+Create the cross-account role in Account B before granting assume permissions in Account A. This prevents dangling references.
 
-Attach this as an inline policy on the Lambda execution role (`McpLambdaExecRole-rdsAgenticWAR`).
-
-**2. In Account B — Create a role that Account A can assume:**
-
-Create a role named `RdsAgenticWAR-CrossAccountRole` with:
-
-- **Trust policy** (allows Account A's Lambda role to assume it):
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
+```bash
+# Run in Account B (switch credentials or use --profile)
+aws iam create-role \
+    --role-name RdsAgenticWAR-CrossAccountRole \
+    --assume-role-policy-document '{
+        "Version": "2012-10-17",
+        "Statement": [{
             "Effect": "Allow",
             "Principal": {
                 "AWS": "arn:aws:iam::<ACCOUNT_A_ID>:role/McpLambdaExecRole-rdsAgenticWAR"
             },
             "Action": "sts:AssumeRole"
-        }
-    ]
-}
+        }]
+    }' \
+    --tags Key=Project,Value=rdsAgenticWAR Key=ManagedBy,Value=manual
+
+# Attach the read-only policies (same as policies/ folder)
+aws iam put-role-policy \
+    --role-name RdsAgenticWAR-CrossAccountRole \
+    --policy-name RdsAccess \
+    --policy-document file://policies/rds-access.json
+
+aws iam put-role-policy \
+    --role-name RdsAgenticWAR-CrossAccountRole \
+    --policy-name CostAccess \
+    --policy-document file://policies/cost-access.json
+
+aws iam put-role-policy \
+    --role-name RdsAgenticWAR-CrossAccountRole \
+    --policy-name ObservabilityAccess \
+    --policy-document file://policies/observability-access.json
 ```
 
-- **Permissions** — Attach the same policies from the `policies/` folder:
-  - `rds-access.json` — RDS/Aurora read access
-  - `cost-access.json` — Cost Explorer access
-  - `observability-access.json` — CloudWatch, Logs, EC2 security groups
+#### Step 2: Grant assume-role permission in Account A
 
-**3. Invoke the agent with the cross-account context:**
+Add an inline policy to the Lambda execution role allowing it to assume the Account B role:
 
-When prompting the agent, specify the target account's cluster identifier or region. The MCP servers will use the assumed role credentials to access Account B's resources.
+```bash
+# Run in Account A
+aws iam put-role-policy \
+    --role-name McpLambdaExecRole-rdsAgenticWAR \
+    --policy-name CrossAccountAssumeRole \
+    --policy-document '{
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Sid": "AllowCrossAccountAssume",
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Resource": "arn:aws:iam::<ACCOUNT_B_ID>:role/RdsAgenticWAR-CrossAccountRole"
+        }]
+    }'
+```
+
+#### Step 3: Verify cross-account access
+
+Test that the trust relationship is working:
+
+```bash
+# Run in Account A — attempt to assume the Account B role
+aws sts assume-role \
+    --role-arn arn:aws:iam::<ACCOUNT_B_ID>:role/RdsAgenticWAR-CrossAccountRole \
+    --role-session-name test-cross-account
+
+# If successful, you will see temporary credentials in the output.
+# If it fails with "AccessDenied", verify:
+#   1. Account B role trust policy has the correct Account A role ARN
+#   2. Account A inline policy has the correct Account B role ARN
+#   3. Wait 10-15 seconds for IAM propagation after creating policies
+```
+
+#### Step 4: Invoke the agent
+
+When prompting the agent, specify the target account's cluster identifier or region. The MCP servers use the assumed role credentials to access Account B's resources:
+
+```bash
+python main.py --local "Full review of prod-cluster in account <ACCOUNT_B_ID>"
+```
 
 ## Security
 
-- MCP Lambda functions use **IAM auth** (Function URLs with `AWS_IAM` auth type)
-- AgentCore Gateway uses **OAuth 2.0** (Amazon Cognito) for inbound authentication
+- MCP Lambda functions use **IAM auth** (AWS Lambda Function URLs with `AWS_IAM` auth type)
+- Amazon Bedrock AgentCore Gateway uses **OAuth 2.0** (Amazon Cognito) for inbound authentication
 - Gateway-to-Lambda communication uses **IAM Role** assumption
 - All IAM policies follow **least-privilege** (read-only access only)
-- ECR images have **scan-on-push** enabled
+- Amazon Elastic Container Registry (Amazon ECR) images have **scan-on-push** enabled
 - No secrets stored in code — all credentials are runtime-resolved
 
 ## Clean up instructions
@@ -272,7 +307,7 @@ cd app/agent
 # Step 1: Remove Gateway (deletes Cognito + Gateway + targets)
 python setup_gateway.py --cleanup
 
-# Step 2: Remove MCP Lambdas (deletes Lambda functions + ECR + IAM roles + policies)
+# Step 2: Remove MCP Lambdas (deletes AWS Lambda functions + Amazon ECR + IAM roles + policies)
 python deploy_mcp_lambdas.py --cleanup
 ```
 
