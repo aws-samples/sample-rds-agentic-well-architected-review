@@ -17,7 +17,7 @@ The RDS Agentic WAR is a multi-agent system that performs automated Well-Archite
 
 ### Use case Architecture
 
-![RDS Agentic WAR Architecture](architecture.png)
+![RDS Agentic WAR Architecture](app/agent/images/rds-agent-architecture.png)
 
 ### Use case key Features
 
