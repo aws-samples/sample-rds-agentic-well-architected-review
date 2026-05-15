@@ -1,3 +1,6 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
+<!-- SPDX-License-Identifier: MIT-0 -->
+
 # AgentCore Project
 
 This project contains configuration and infrastructure for an Amazon Bedrock AgentCore application.

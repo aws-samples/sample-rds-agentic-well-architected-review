@@ -1,3 +1,6 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
+<!-- SPDX-License-Identifier: MIT-0 -->
+
 # RDS/Aurora Agentic Well-Architected Review
 
 ## Overview
@@ -40,6 +43,7 @@ The RDS Agentic WAR is a multi-agent system that performs automated Well-Archite
 | AWS CLI | Configured with credentials (`aws configure`) |
 | AgentCore CLI | `npm install -g @aws/agentcore-cli` |
 | Amazon Bedrock access | Claude models enabled in your region |
+| RDS/Aurora IAM auth or Data API | Target databases must have [IAM database authentication](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.html) or [RDS Data API](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/data-api.html) enabled for the agent to run database-level queries |
 
 ## Use case setup
 

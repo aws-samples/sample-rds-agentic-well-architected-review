@@ -124,6 +124,12 @@ def connect_gateway() -> None:
     global _gateway_tools, _mcp_stack
     if _mcp_stack is not None:
         return
+
+    if not GATEWAY_URL:
+        raise RuntimeError("GATEWAY_URL not set. Run setup_gateway.py and update .env.")
+    if not GATEWAY_URL.startswith("https://"):
+        raise ValueError(f"GATEWAY_URL must use HTTPS, got: {GATEWAY_URL}")
+
     logger.info("Connecting to AgentCore Gateway...")
     _mcp_stack = contextlib.ExitStack()
 
@@ -217,7 +223,7 @@ def _build_system_prompt(role: str, prompt_file: str) -> str:
     if _ctx and _ctx.output_dir:
         base += (f"OUTPUT DIRECTORY: {_ctx.output_dir}\n"
                  "Save all output files to this directory.\n\n"
-                 "When using the shell tool, always set non_interactive=True.")
+                 "When using the shell tool, set non_interactive=True.")
     return base
 
 
@@ -258,7 +264,24 @@ def _run_agent(label: str, role: str, prompt_file: str, prompt: str,
 
 # ── Pillar tools ─────────────────────────────────────────────────────────────
 
-MAX_PILLAR_RETRIES = 2
+MAX_PROMPT_LENGTH = 10000  # Maximum allowed prompt length to prevent abuse
+
+
+def _validate_prompt(prompt: str) -> str:
+    """Validate and sanitize user prompt input.
+
+    Raises:
+        ValueError: If prompt is empty or exceeds maximum length.
+    """
+    if not prompt or not prompt.strip():
+        raise ValueError("Prompt cannot be empty.")
+    prompt = prompt.strip()
+    if len(prompt) > MAX_PROMPT_LENGTH:
+        raise ValueError(
+            f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH} characters "
+            f"(received {len(prompt)})."
+        )
+    return prompt
 
 
 def _run_pillar_with_retry(pillar_key: str, query: str) -> str:
@@ -417,6 +440,12 @@ async def invoke(payload: dict) -> str:
     connect_gateway()
     query = payload.get("prompt", "")
 
+    try:
+        query = _validate_prompt(query)
+    except ValueError as e:
+        yield f"Error: {e}\n"
+        return
+
     yield "Starting analysis...\n"
     result = analyze_query(query)
     yield result
@@ -444,9 +473,13 @@ if __name__ == "__main__":
     if "--local" in sys.argv:
         prompt = " ".join(a for a in sys.argv[1:] if a != "--local") or input("Enter prompt: ")
         try:
+            prompt = _validate_prompt(prompt)
             connect_gateway()
             print("\n\n📋 FINAL RESULT:\n")
             print(analyze_query(prompt))
+        except ValueError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
         finally:
             disconnect_gateway()
     else:

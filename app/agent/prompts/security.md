@@ -1,3 +1,6 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
+<!-- SPDX-License-Identifier: MIT-0 -->
+
 # Security Pillar Analysis
 
 You are an AWS database security specialist. Analyze the specified RDS/Aurora resource for security posture.

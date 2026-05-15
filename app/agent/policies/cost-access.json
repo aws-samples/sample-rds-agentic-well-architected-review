@@ -2,44 +2,59 @@
     "Version": "2012-10-17",
     "Statement": [
         {
-            "Sid": "CostExplorerAccess",
+            "Sid": "CostExplorerReadAccess",
             "Effect": "Allow",
             "Action": [
-                "ce:Get*",
-                "ce:List*",
-                "ce:Describe*"
+                "ce:GetCostAndUsage",
+                "ce:GetCostAndUsageWithResources",
+                "ce:GetCostForecast",
+                "ce:GetDimensionValues",
+                "ce:GetReservationCoverage",
+                "ce:GetReservationUtilization",
+                "ce:GetSavingsPlansCoverage",
+                "ce:GetSavingsPlansUtilization",
+                "ce:GetSavingsPlansUtilizationDetails",
+                "ce:GetTags",
+                "ce:GetUsageForecast",
+                "ce:ListCostAllocationTags",
+                "ce:ListCostCategoryDefinitions"
             ],
             "Resource": "*"
         },
         {
-            "Sid": "BudgetsAccess",
+            "Sid": "BudgetsReadAccess",
             "Effect": "Allow",
             "Action": [
-                "budgets:View*",
-                "budgets:Describe*",
-                "budgets:List*"
+                "budgets:ViewBudget",
+                "budgets:DescribeBudget",
+                "budgets:DescribeBudgets",
+                "budgets:DescribeBudgetPerformanceHistory"
             ],
             "Resource": "*"
         },
         {
-            "Sid": "ComputeOptimizerAccess",
+            "Sid": "ComputeOptimizerReadAccess",
             "Effect": "Allow",
             "Action": [
-                "compute-optimizer:Get*",
-                "compute-optimizer:Describe*"
+                "compute-optimizer:GetRecommendationSummaries",
+                "compute-optimizer:GetAutoScalingGroupRecommendations",
+                "compute-optimizer:GetEC2InstanceRecommendations",
+                "compute-optimizer:GetEnrollmentStatus"
             ],
             "Resource": "*"
         },
         {
-            "Sid": "SavingsPlansAccess",
+            "Sid": "SavingsPlansReadAccess",
             "Effect": "Allow",
             "Action": [
-                "savingsplans:Describe*"
+                "savingsplans:DescribeSavingsPlans",
+                "savingsplans:DescribeSavingsPlansOfferings",
+                "savingsplans:DescribeSavingsPlanRates"
             ],
             "Resource": "*"
         },
         {
-            "Sid": "PricingAccess",
+            "Sid": "PricingReadAccess",
             "Effect": "Allow",
             "Action": [
                 "pricing:GetProducts"
@@ -47,11 +62,14 @@
             "Resource": "*"
         },
         {
-            "Sid": "CostOptimizationHubAccess",
+            "Sid": "CostOptimizationHubReadAccess",
             "Effect": "Allow",
             "Action": [
-                "cost-optimization-hub:Get*",
-                "cost-optimization-hub:List*"
+                "cost-optimization-hub:GetRecommendation",
+                "cost-optimization-hub:ListRecommendations",
+                "cost-optimization-hub:ListRecommendationSummaries",
+                "cost-optimization-hub:ListEnrollmentStatuses",
+                "cost-optimization-hub:GetPreferences"
             ],
             "Resource": "*"
         }

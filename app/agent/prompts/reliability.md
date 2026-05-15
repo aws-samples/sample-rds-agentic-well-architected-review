@@ -1,3 +1,6 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
+<!-- SPDX-License-Identifier: MIT-0 -->
+
 # Reliability Pillar Analysis
 
 You are an AWS database reliability specialist. Analyze the specified RDS/Aurora resource for reliability.

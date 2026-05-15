@@ -100,7 +100,7 @@ class RollbackStack:
                 rollback_fn()
                 logger.info("  ✓ Deleted: %s", resource_name)
             except Exception as e:
-                # Log but continue — best-effort cleanup like CloudFormation
+                # Log but continue — cleanup proceeds on failure, similar to CloudFormation
                 logger.warning("  ✗ Failed to delete %s: %s", resource_name, e)
 
         self._actions.clear()
@@ -228,7 +228,7 @@ def _create_gateway_role(iam_client: Any, account_id: str, stack: RollbackStack)
     logger.info("  Role ARN: %s", role_arn)
     logger.info("  Waiting %ds for IAM propagation...", IAM_PROPAGATION_DELAY_SECONDS)
     # IAM role creation is eventually consistent — subsequent API calls that
-    # reference this role (e.g., Gateway creation) will fail with InvalidInput
+    # reference this role (e.g., Gateway creation) can fail with InvalidInput
     # if the role hasn't propagated yet. This delay is intentional.
     time.sleep(IAM_PROPAGATION_DELAY_SECONDS)  # nosemgrep: arbitrary-sleep
     return role_arn
@@ -300,7 +300,18 @@ def setup_gateway() -> dict[str, Any]:
                 "Run 'python deploy_mcp_lambdas.py' first to deploy the MCP server Lambdas."
             )
 
-        lambdas_config = json.loads(lambdas_config_path.read_text(encoding="utf-8"))
+        try:
+            lambdas_config = json.loads(lambdas_config_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, ValueError) as e:
+            raise RuntimeError(
+                f"Invalid JSON in mcp_lambdas_config.json: {e}"
+            ) from e
+
+        if not isinstance(lambdas_config, dict) or "lambdas" not in lambdas_config:
+            raise RuntimeError(
+                "mcp_lambdas_config.json is missing required 'lambdas' key."
+            )
+
         deployed_lambdas = [
             entry for entry in lambdas_config.get("lambdas", [])
             if entry.get("status") == "deployed"
@@ -448,7 +459,12 @@ def cleanup_gateway() -> None:
         logger.error("Config file not found: %s — nothing to clean up.", config_path)
         sys.exit(1)
 
-    config = json.loads(config_path.read_text(encoding="utf-8"))
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error("Invalid JSON in %s: %s", config_path, e)
+        sys.exit(1)
+
     logger.info("=" * 70)
     logger.info("DELETE_IN_PROGRESS — Cleaning up Gateway: %s", config.get("gateway_id", "unknown"))
     logger.info("=" * 70)

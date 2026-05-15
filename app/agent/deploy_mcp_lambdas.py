@@ -276,9 +276,9 @@ def _create_lambda_execution_role(iam_client: Any, account_id: str) -> str:
     role_arn = f"arn:aws:iam::{account_id}:role/{LAMBDA_ROLE_NAME}"
     logger.info("  Role ARN: %s", role_arn)
     logger.info("  Waiting 10s for IAM propagation...")
-    # IAM role creation is eventually consistent — Lambda creation will fail
+    # IAM role creation is eventually consistent — Lambda creation can fail
     # with InvalidParameterValueException if the role hasn't propagated yet.
-    # This delay is intentional per AWS best practices.
+    # This delay is intentional per AWS documentation.
     time.sleep(10)  # nosemgrep: arbitrary-sleep
     return role_arn
 

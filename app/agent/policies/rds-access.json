@@ -2,16 +2,54 @@
     "Version": "2012-10-17",
     "Statement": [
         {
-            "Sid": "RDSReadAccess",
+            "Sid": "RDSDescribeAccess",
             "Effect": "Allow",
             "Action": [
-                "rds:Describe*",
-                "rds:List*",
-                "rds:DownloadDBLogFilePortion",
-                "rds:DownloadCompleteDBLogFile",
-                "rds-db:connect"
+                "rds:DescribeDBClusters",
+                "rds:DescribeDBClusterEndpoints",
+                "rds:DescribeDBClusterParameters",
+                "rds:DescribeDBClusterParameterGroups",
+                "rds:DescribeDBClusterSnapshots",
+                "rds:DescribeDBInstances",
+                "rds:DescribeDBParameterGroups",
+                "rds:DescribeDBParameters",
+                "rds:DescribeDBSnapshots",
+                "rds:DescribeDBSubnetGroups",
+                "rds:DescribeEventSubscriptions",
+                "rds:DescribeEvents",
+                "rds:DescribeGlobalClusters",
+                "rds:DescribeOrderableDBInstanceOptions",
+                "rds:DescribePendingMaintenanceActions",
+                "rds:DescribeReservedDBInstances",
+                "rds:DescribeReservedDBInstancesOfferings",
+                "rds:DescribeValidDBInstanceModifications"
             ],
             "Resource": "*"
+        },
+        {
+            "Sid": "RDSListAccess",
+            "Effect": "Allow",
+            "Action": [
+                "rds:ListTagsForResource"
+            ],
+            "Resource": "arn:aws:rds:*:*:*:*"
+        },
+        {
+            "Sid": "RDSLogDownload",
+            "Effect": "Allow",
+            "Action": [
+                "rds:DownloadDBLogFilePortion",
+                "rds:DownloadCompleteDBLogFile"
+            ],
+            "Resource": "arn:aws:rds:*:*:db:*"
+        },
+        {
+            "Sid": "RDSIAMDatabaseConnect",
+            "Effect": "Allow",
+            "Action": [
+                "rds-db:connect"
+            ],
+            "Resource": "arn:aws:rds-db:*:*:dbuser:*/*"
         }
     ]
 }

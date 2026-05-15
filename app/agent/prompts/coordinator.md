@@ -1,3 +1,6 @@
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
+<!-- SPDX-License-Identifier: MIT-0 -->
+
 # Coordinator
 
 Route RDS/Aurora review requests to the appropriate tool. Supports both Aurora clusters and standalone RDS instances.

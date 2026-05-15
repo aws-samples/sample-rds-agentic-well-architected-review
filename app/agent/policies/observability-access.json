@@ -2,25 +2,30 @@
     "Version": "2012-10-17",
     "Statement": [
         {
-            "Sid": "CloudWatchAccess",
+            "Sid": "CloudWatchMetricsReadAccess",
             "Effect": "Allow",
             "Action": [
-                "cloudwatch:Get*",
-                "cloudwatch:List*",
-                "cloudwatch:Describe*",
-                "cloudwatch:GenerateQuery",
-                "cloudwatch:GenerateQueryResultsSummary",
-                "cloudwatch:BatchGet*"
+                "cloudwatch:GetMetricData",
+                "cloudwatch:GetMetricStatistics",
+                "cloudwatch:ListMetrics",
+                "cloudwatch:DescribeAlarms",
+                "cloudwatch:DescribeAlarmsForMetric",
+                "cloudwatch:GetDashboard",
+                "cloudwatch:ListDashboards",
+                "cloudwatch:ListTagsForResource"
             ],
             "Resource": "*"
         },
         {
-            "Sid": "CloudWatchLogsAccess",
+            "Sid": "CloudWatchLogsReadAccess",
             "Effect": "Allow",
             "Action": [
-                "logs:Get*",
-                "logs:List*",
-                "logs:Describe*",
+                "logs:GetLogEvents",
+                "logs:GetLogRecord",
+                "logs:GetQueryResults",
+                "logs:ListLogDeliveries",
+                "logs:DescribeLogGroups",
+                "logs:DescribeLogStreams",
                 "logs:FilterLogEvents",
                 "logs:StartQuery",
                 "logs:StopQuery",
@@ -30,27 +35,25 @@
                 "logs:TestTransformer",
                 "logs:Unmask"
             ],
-            "Resource": "*"
+            "Resource": "arn:aws:logs:*:*:log-group:*"
         },
         {
-            "Sid": "EC2SecurityGroupAccess",
+            "Sid": "EC2NetworkReadAccess",
             "Effect": "Allow",
             "Action": [
-                "ec2:DescribeSecurityGroup*",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeSecurityGroupRules",
                 "ec2:DescribeSubnets",
-                "ec2:DescribeSecondarySubnets",
-                "ec2:GetSecurityGroupsForVpc",
-                "ec2:GetSubnetCidrReservations"
+                "ec2:DescribeVpcs"
             ],
             "Resource": "*"
         },
         {
-            "Sid": "CloudFormationAccess",
+            "Sid": "CloudFormationReadAccess",
             "Effect": "Allow",
             "Action": [
                 "cloudformation:ListResources",
                 "cloudformation:GetResource",
-                "cloudformation:GetResourceRequestStatus",
                 "cloudformation:ListResourceRequests"
             ],
             "Resource": "*"
