@@ -279,7 +279,7 @@ def _create_lambda_execution_role(iam_client: Any, account_id: str) -> str:
     # IAM role creation is eventually consistent — Lambda creation will fail
     # with InvalidParameterValueException if the role hasn't propagated yet.
     # This delay is intentional per AWS best practices.
-    time.sleep(10)  # noqa: ASYNC251
+    time.sleep(10)  # nosemgrep: arbitrary-sleep
     return role_arn
 
 
@@ -339,7 +339,9 @@ def _build_and_push_image(
     Returns:
         The full image URI with tag.
     """
-    build_dir = Path(tempfile.mkdtemp(prefix=f"mcp-lambda-{server_name}-"))
+    # mkdtemp creates a directory with restricted permissions (0o700) — secure by default.
+    # The directory is cleaned up in the finally block below.
+    build_dir = Path(tempfile.mkdtemp(prefix=f"mcp-lambda-{server_name}-"))  # nosec B108
 
     try:
         # Write Dockerfile
@@ -533,8 +535,8 @@ def deploy_mcp_lambdas() -> dict[str, Any]:
             try:
                 image_uri = entry.get("image_uri", "")
 
-                # Write extraction script to a temp file
-                extract_dir = Path(tempfile.mkdtemp(prefix="mcp-extract-"))
+                # mkdtemp creates a secure temp directory (0o700); cleaned up after use.
+                extract_dir = Path(tempfile.mkdtemp(prefix="mcp-extract-"))  # nosec B108
                 extract_script = extract_dir / "extract_tools.py"
                 extract_script.write_text(
                     "import json, asyncio\n"

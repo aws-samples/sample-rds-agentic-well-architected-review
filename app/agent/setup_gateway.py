@@ -230,7 +230,7 @@ def _create_gateway_role(iam_client: Any, account_id: str, stack: RollbackStack)
     # IAM role creation is eventually consistent — subsequent API calls that
     # reference this role (e.g., Gateway creation) will fail with InvalidInput
     # if the role hasn't propagated yet. This delay is intentional.
-    time.sleep(IAM_PROPAGATION_DELAY_SECONDS)  # noqa: ASYNC251
+    time.sleep(IAM_PROPAGATION_DELAY_SECONDS)  # nosemgrep: arbitrary-sleep
     return role_arn
 
 
