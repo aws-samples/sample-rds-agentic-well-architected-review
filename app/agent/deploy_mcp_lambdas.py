@@ -276,7 +276,10 @@ def _create_lambda_execution_role(iam_client: Any, account_id: str) -> str:
     role_arn = f"arn:aws:iam::{account_id}:role/{LAMBDA_ROLE_NAME}"
     logger.info("  Role ARN: %s", role_arn)
     logger.info("  Waiting 10s for IAM propagation...")
-    time.sleep(10)
+    # IAM role creation is eventually consistent — Lambda creation will fail
+    # with InvalidParameterValueException if the role hasn't propagated yet.
+    # This delay is intentional per AWS best practices.
+    time.sleep(10)  # noqa: ASYNC251
     return role_arn
 
 
@@ -554,13 +557,17 @@ def deploy_mcp_lambdas() -> dict[str, Any]:
                     encoding="utf-8",
                 )
 
+                # Mount the extraction script into the container at a known path.
+                # Note: This /tmp path is inside the ephemeral Docker container,
+                # not the host filesystem (nosec B108).
+                container_script_path = "/tmp/extract_tools.py"  # noqa: S108
                 result = subprocess.run(
                     [
                         "docker", "run", "--rm", "--platform", "linux/amd64",
-                        "-v", f"{extract_script}:/tmp/extract_tools.py:ro",
+                        "-v", f"{extract_script}:{container_script_path}:ro",
                         "--entrypoint", "python",
                         image_uri,
-                        "/tmp/extract_tools.py",
+                        container_script_path,
                     ],
                     capture_output=True,
                     text=True,

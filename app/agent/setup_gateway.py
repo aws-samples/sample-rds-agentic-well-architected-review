@@ -227,7 +227,10 @@ def _create_gateway_role(iam_client: Any, account_id: str, stack: RollbackStack)
 
     logger.info("  Role ARN: %s", role_arn)
     logger.info("  Waiting %ds for IAM propagation...", IAM_PROPAGATION_DELAY_SECONDS)
-    time.sleep(IAM_PROPAGATION_DELAY_SECONDS)
+    # IAM role creation is eventually consistent — subsequent API calls that
+    # reference this role (e.g., Gateway creation) will fail with InvalidInput
+    # if the role hasn't propagated yet. This delay is intentional.
+    time.sleep(IAM_PROPAGATION_DELAY_SECONDS)  # noqa: ASYNC251
     return role_arn
 
 
@@ -368,7 +371,7 @@ def setup_gateway() -> dict[str, Any]:
                     "function_arn": func_arn,
                     "status": f"failed: {e}",
                 })
-                logger.error("  ✗ %s failed: %s", target_name, e)
+                logger.warning("  ✗ %s failed: %s", target_name, e)
                 raise RuntimeError(
                     f"Target registration failed for '{target_name}': {e}"
                 ) from e
