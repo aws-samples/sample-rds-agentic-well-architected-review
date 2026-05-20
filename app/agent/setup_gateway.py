@@ -402,12 +402,40 @@ def setup_gateway() -> dict[str, Any]:
             logger.info("  Skipped — policies managed by deploy_mcp_lambdas.py")
 
         logger.info("  Saving configuration to %s...", CONFIG_OUTPUT)
+
+        # Store sensitive credentials in AWS Secrets Manager instead of local file
+        secrets_client = boto3.client("secretsmanager", region_name=REGION)
+        secret_name = f"{GATEWAY_NAME}/gateway-credentials"
+        secret_value = json.dumps(client_info)
+
+        try:
+            secrets_client.create_secret(
+                Name=secret_name,
+                Description=f"OAuth credentials for {GATEWAY_NAME} AgentCore Gateway",
+                SecretString=secret_value,
+                Tags=[
+                    {"Key": "Project", "Value": GATEWAY_NAME},
+                    {"Key": "ManagedBy", "Value": "setup_gateway.py"},
+                ],
+            )
+            logger.info("  ✓ Credentials stored in Secrets Manager: %s", secret_name)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ResourceExistsException":
+                secrets_client.put_secret_value(
+                    SecretId=secret_name,
+                    SecretString=secret_value,
+                )
+                logger.info("  ✓ Credentials updated in Secrets Manager: %s", secret_name)
+            else:
+                raise
+
+        # Save non-sensitive config to local file (no secrets)
         config: dict[str, Any] = {
             "gateway_url": gateway_url,
             "gateway_id": gateway_id,
             "gateway_role_arn": role_arn,
             "region": REGION,
-            "client_info": client_info,
+            "secret_name": secret_name,
             "targets": targets_created,
         }
 
@@ -484,7 +512,16 @@ def cleanup_gateway() -> None:
     except Exception as e:
         logger.warning("  ✗ Gateway cleanup failed (unexpected): %s", e)
 
-    # 2. Delete Gateway role (detach policies first)
+    # 2. Delete credentials from Secrets Manager
+    secret_name = config.get("secret_name", f"{GATEWAY_NAME}/gateway-credentials")
+    try:
+        secrets_client = boto3.client("secretsmanager", region_name=config.get("region", REGION))
+        secrets_client.delete_secret(SecretId=secret_name, ForceDeleteWithoutRecovery=True)
+        logger.info("  ✓ Secret deleted: %s", secret_name)
+    except ClientError as e:
+        logger.warning("  ✗ Could not delete secret: %s", e)
+
+    # 3. Delete Gateway role (detach policies first)
     try:
         attached = iam_client.list_attached_role_policies(RoleName=GATEWAY_ROLE_NAME)
         for policy in attached.get("AttachedPolicies", []):
@@ -496,7 +533,7 @@ def cleanup_gateway() -> None:
     except ClientError as e:
         logger.warning("  ✗ Could not delete Gateway role: %s", e)
 
-    # 3. Remove config file
+    # 4. Remove config file
     config_path.unlink()
     logger.info("  ✓ Config file removed")
 

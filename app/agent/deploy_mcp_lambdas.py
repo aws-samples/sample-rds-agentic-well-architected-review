@@ -89,6 +89,7 @@ LAMBDA_MEMORY: int = 512
 LAMBDA_ROLE_NAME: str = f"McpLambdaExecRole-{PROJECT_NAME}"
 ECR_REPO_NAME: str = f"{PROJECT_NAME.lower()}-mcp-servers"
 CONFIG_OUTPUT: str = "mcp_lambdas_config.json"
+GATEWAY_ROLE_NAME: str = f"AgentCoreGatewayRole-{PROJECT_NAME}"
 
 # MCP servers to deploy.
 # Format: (function_suffix, pip_package, server_command, description)
@@ -295,7 +296,9 @@ def _ensure_ecr_repo(account_id: str) -> str:
         if e.response["Error"]["Code"] == "RepositoryNotFoundException":
             response = ecr_client.create_repository(
                 repositoryName=ECR_REPO_NAME,
+                imageTagMutability="IMMUTABLE",
                 imageScanningConfiguration={"scanOnPush": True},
+                encryptionConfiguration={"encryptionType": "AES256"},
                 tags=[
                     {"Key": "Project", "Value": PROJECT_NAME},
                     {"Key": "ManagedBy", "Value": "deploy_mcp_lambdas.py"},
@@ -358,8 +361,9 @@ def _build_and_push_image(
         )
         (build_dir / "lambda_function.py").write_text(handler_code, encoding="utf-8")
 
-        # Build image
-        image_tag = f"{repo_uri}:{server_name.lower()}"
+        # Build image — use unique tag (ECR repo is IMMUTABLE, tags cannot be overwritten)
+        deploy_timestamp = int(time.time())
+        image_tag = f"{repo_uri}:{server_name.lower()}-{deploy_timestamp}"
         logger.info("  Building Docker image: %s", image_tag)
 
         result = subprocess.run(
@@ -396,8 +400,12 @@ def _deploy_lambda(
     role_arn: str,
     image_uri: str,
     description: str,
+    account_id: str,
 ) -> dict[str, str]:
     """Create or update a Lambda function using a container image.
+
+    Adds a resource-based policy restricting Function URL invocation
+    to the AgentCore Gateway role exclusively.
 
     Returns:
         Dict with function_name, function_arn, and function_url.
@@ -457,6 +465,33 @@ def _deploy_lambda(
         else:
             raise
 
+    # Restrict Function URL invocation to the AgentCore Gateway role ONLY.
+    # This prevents any other IAM principal from bypassing the Gateway's
+    # OAuth authentication layer by invoking Lambda directly.
+    gateway_role_arn = f"arn:aws:iam::{account_id}:role/{GATEWAY_ROLE_NAME}"
+    permission_sid = "AllowGatewayInvokeOnly"
+
+    try:
+        # Remove any existing wildcard or stale permission first
+        try:
+            lambda_client.remove_permission(
+                FunctionName=function_name,
+                StatementId=permission_sid,
+            )
+        except ClientError:
+            pass  # Permission doesn't exist yet — expected on first deploy
+
+        lambda_client.add_permission(
+            FunctionName=function_name,
+            StatementId=permission_sid,
+            Action="lambda:InvokeFunctionUrl",
+            Principal=gateway_role_arn,
+            FunctionUrlAuthType="AWS_IAM",
+        )
+        logger.info("  Function URL restricted to Gateway role: %s", GATEWAY_ROLE_NAME)
+    except ClientError as e:
+        logger.warning("  Could not restrict Function URL permissions: %s", e)
+
     logger.info("  Function URL: %s", function_url)
 
     return {
@@ -510,7 +545,7 @@ def deploy_mcp_lambdas() -> dict[str, Any]:
             logger.info("\n  ── %s ──", function_name)
 
             image_uri = _build_and_push_image(suffix, pip_package, server_command, repo_uri)
-            result = _deploy_lambda(lambda_client, function_name, role_arn, image_uri, description)
+            result = _deploy_lambda(lambda_client, function_name, role_arn, image_uri, description, account_id)
             result["image_uri"] = image_uri
             result["status"] = "deployed"
             deployed.append(result)

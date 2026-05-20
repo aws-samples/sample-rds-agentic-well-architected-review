@@ -27,7 +27,7 @@
       "name": "rdsAgenticWAR",
       "description": "Gateway for rdsAgenticWAR",
       "targets": [],
-      "authorizerType": "NONE",
+      "authorizerType": "OAUTH",
       "enableSemanticSearch": true,
       "exceptionLevel": "NONE"
     }
