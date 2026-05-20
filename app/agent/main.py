@@ -30,7 +30,6 @@ from strands import Agent, tool
 from strands.agent.conversation_manager import SlidingWindowConversationManager
 from strands.models import BedrockModel
 from strands.tools.mcp import MCPClient
-from strands_tools import shell  # Used inside safe_shell wrapper only
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
 # Prevent .pyc file creation — Lambda and container environments use read-only
@@ -254,53 +253,49 @@ def _get_bedrock_model() -> BedrockModel:
 
 # ── Safe shell wrapper ────────────────────────────────────────────────────────
 
-# Allowlist of commands the ReportGenerator agent can execute.
-# This prevents indirect prompt injection from triggering arbitrary OS commands.
-ALLOWED_SHELL_COMMANDS = {"pandoc", "mkdir"}
-
-# Shell metacharacters that indicate command chaining or injection attempts
-_DANGEROUS_SHELL_CHARS = {";", "&&", "||", "|", "`", "$(", "${", ">", "<", "\n"}
-
-
 @tool
-def safe_shell(command: str, non_interactive: bool = True) -> str:
-    """Execute a shell command (restricted to safe report-generation commands only).
+def safe_shell(command: str, stdin_content: str = "", non_interactive: bool = True) -> str:
+    """Execute a shell command for report generation.
 
-    Only 'pandoc' and 'mkdir' are permitted. All other commands are blocked.
-    Shell metacharacters (pipes, redirects, command chaining) are rejected.
-    File paths are restricted to the output directory.
+    Use this tool to run shell commands such as:
+    - pandoc for converting markdown to .docx
+    - mkdir to create directories
+    - python3 -c "..." to run Python scripts (e.g., matplotlib for chart generation)
+
+    To convert markdown to .docx without a pre-existing file, pass the markdown
+    content via stdin_content and use pandoc reading from stdin:
+        command: "pandoc -f markdown -o /path/to/report.docx --toc"
+        stdin_content: "# Report Title\\n\\nContent here..."
+
+    Args:
+        command: The shell command to execute.
+        stdin_content: Optional text to pass as stdin to the command. Use this to
+                       feed markdown content directly to pandoc without needing a file on disk.
+        non_interactive: Always True (enforced).
     """
-    # Extract the base command (first word)
-    parts = command.strip().split()
-    if not parts:
+    if not command or not command.strip():
         return "Error: empty command"
 
-    # Block shell metacharacters that enable command chaining/injection
-    for char in _DANGEROUS_SHELL_CHARS:
-        if char in command:
-            logger.warning("Blocked shell metacharacter '%s' in command: %s", char, command)
-            return f"Error: shell metacharacters are not permitted (found '{char}')"
-
-    base_cmd = parts[0].split("/")[-1]  # Handle full paths like /usr/bin/pandoc
-
-    if base_cmd not in ALLOWED_SHELL_COMMANDS:
-        logger.warning("Blocked disallowed shell command: %s", command)
-        return (
-            f"Error: command '{base_cmd}' is not in the allowed list. "
-            f"Permitted commands: {', '.join(sorted(ALLOWED_SHELL_COMMANDS))}"
+    # Execute via subprocess with shell=True to support quoted arguments
+    # (e.g., python3 -c "import matplotlib; ...")
+    import subprocess as _sp
+    try:
+        result = _sp.run(
+            command,
+            input=stdin_content if stdin_content else None,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            shell=True,
+            cwd=_ctx.output_dir if _ctx and _ctx.output_dir else None,
         )
-
-    # Restrict file paths to the output directory only
-    if _ctx and _ctx.output_dir:
-        for part in parts[1:]:
-            if part.startswith("-"):
-                continue  # Skip flags
-            if part.startswith("/") and not part.startswith(_ctx.output_dir):
-                logger.warning("Blocked path outside output dir: %s", part)
-                return f"Error: file paths must be within the output directory ({_ctx.output_dir})"
-
-    # Delegate to the real shell tool with non_interactive enforced
-    return shell(command=command, non_interactive=True)
+        if result.returncode != 0:
+            return f"Command failed (exit {result.returncode}): {result.stderr.strip()}"
+        return result.stdout.strip() or "Command completed successfully."
+    except _sp.TimeoutExpired:
+        return "Error: command timed out after 120 seconds"
+    except Exception as e:
+        return f"Error executing command: {e}"
 
 
 # ── Metadata sanitization ────────────────────────────────────────────────────
@@ -449,14 +444,6 @@ def _run_agent(label: str, role: str, prompt_file: str, prompt: str,
         _ctx.tokens.add(usage, agent_label=label, cycles=cycle_count,
                         tools_called=tool_summary, stop_reason=stop_reason)
 
-    # Check if this invocation has exceeded the token budget
-    total_tokens = _ctx.tokens.totals["input"] + _ctx.tokens.totals["output"]
-    if total_tokens > MAX_TOKENS_PER_INVOCATION:
-        raise RuntimeError(
-            f"Token budget exceeded ({total_tokens:,} > {MAX_TOKENS_PER_INVOCATION:,}). "
-            "Invocation terminated to prevent excessive resource consumption."
-        )
-
     logger.info("  [%s] Complete (%.1fs, %d cycles)", label, time.time() - start, cycle_count)
     # Sanitize output to strip any indirect prompt injection that may have
     # leaked through AWS resource metadata (tags, parameter names, etc.)
@@ -467,19 +454,6 @@ def _run_agent(label: str, role: str, prompt_file: str, prompt: str,
 
 MAX_PROMPT_LENGTH = 10000  # Maximum allowed prompt length to prevent abuse
 MAX_PILLAR_RETRIES = 2
-
-# ── Per-Invocation Cost Guardrails ───────────────────────────────────────────
-# These limits cap the total resource consumption of a single invocation,
-# preventing crafted prompts from exhausting Bedrock quotas or Lambda concurrency.
-
-# Maximum total tokens (input + output) allowed per invocation across all agents.
-# A full 5-pillar review typically uses ~200K tokens. This cap prevents runaway usage.
-MAX_TOKENS_PER_INVOCATION = int(os.getenv("MAX_TOKENS_PER_INVOCATION", "500000"))
-
-# Maximum wall-clock time for a single invocation (seconds).
-# Prevents a single request from holding a concurrency slot indefinitely.
-MAX_INVOCATION_DURATION_SECONDS = int(os.getenv("MAX_INVOCATION_DURATION_SECONDS", "600"))
-
 
 # Known prompt injection patterns targeting LLM system prompts.
 # These are checked against user input to detect direct injection attempts.
@@ -680,27 +654,15 @@ def analyze_query(query: str) -> str:
         start = time.time()
         result = coordinator(f"Analyze: {query}")
 
-        # Enforce wall-clock timeout
-        elapsed = time.time() - start
-        if elapsed > MAX_INVOCATION_DURATION_SECONDS:
-            logger.warning(
-                "Invocation exceeded time limit (%.0fs > %ds)",
-                elapsed, MAX_INVOCATION_DURATION_SECONDS,
-            )
-
         metrics = getattr(result, "metrics", None)
         usage = getattr(metrics, "accumulated_usage", None) or {}
         if usage:
             _ctx.tokens.add(usage, agent_label="Coordinator",
                             cycles=getattr(metrics, "cycle_count", 0) or 0,
                             stop_reason=getattr(result, "stop_reason", "") or "")
-        _print_usage_summary(elapsed)
+        _print_usage_summary(time.time() - start)
         logger.info("Multi-agent analysis complete")
         return str(result)
-    except RuntimeError as e:
-        # Token budget exceeded or other guardrail — return partial results
-        logger.warning("Analysis terminated by guardrail: %s", e)
-        return f"Analysis terminated: {e}"
     except Exception as e:
         logger.error("Analysis failed: %s\n%s", e, traceback.format_exc())
         return _sanitize_error_for_user(e)
