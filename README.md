@@ -290,12 +290,64 @@ python main.py --local "Full review of prod-cluster in account <ACCOUNT_B_ID>"
 
 ## Security
 
-- MCP Lambda functions use **IAM auth** (AWS Lambda Function URLs with `AWS_IAM` auth type)
-- Amazon Bedrock AgentCore Gateway uses **OAuth 2.0** (Amazon Cognito) for inbound authentication
-- Gateway-to-Lambda communication uses **IAM Role** assumption
-- All IAM policies follow **least-privilege** (read-only access only)
-- Amazon Elastic Container Registry (Amazon ECR) images have **scan-on-push** enabled
-- No secrets stored in code — all credentials are runtime-resolved
+> **Important:** This sample is provided for educational and demonstration purposes only. It is not intended for production use without additional security review, testing, and hardening.
+
+### Security Controls Implemented
+
+| Layer | Control | Implementation |
+|---|---|---|
+| Inbound authentication | OAuth 2.0 (Amazon Cognito) | `setup_gateway.py` creates Cognito User Pool; tokens validated by AgentCore Gateway |
+| Lambda Function URL auth | AWS_IAM + resource-based policy | `deploy_mcp_lambdas.py` restricts invocation to Gateway role only via `lambda:AddPermission` |
+| Gateway → Lambda | IAM Role assumption | `credentialProviderType: GATEWAY_IAM_ROLE` on each target |
+| Lambda → AWS services | Temporary STS credentials | Lambda execution role with scoped read-only policies |
+| System prompt hardening | Untrusted data instructions | Every agent instructed to treat tool results as data, never as instructions |
+| Rate limiting | Sliding window + concurrency | 10 requests/minute, 3 concurrent invocations max |
+| Token budget | Per-invocation cap | 500K tokens max per invocation prevents cost spikes |
+| ECR image security | Immutable tags + scan-on-push | Tags cannot be overwritten; vulnerabilities detected on push |
+| Container images | Official AWS base images | `public.ecr.aws/lambda/python:3.12` with timestamp-based unique tags |
+
+### Known Risks
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| Unauthenticated access to Runtime endpoint | High | AgentCore Runtime enforces IAM SigV4 / Cognito JWT at the service level — requests without valid credentials are rejected with HTTP 401 before reaching agent code. Gateway `authorizerType` set to `"OAUTH"` in `agentcore.json`. Forged/expired tokens are rejected by Cognito token validation. |
+| No VPC isolation for Lambda MCP servers | Medium | Functions access only AWS service endpoints via HTTPS; add VPC endpoints for production |
+| No AWS WAF on AgentCore Runtime endpoint | Medium | Code-level rate limiting implemented; add WAF for IP-based blocking in production |
+| Shared IAM execution role across 5 Lambdas | Medium | All Lambdas need the same read-only permissions; split roles for defense-in-depth in production |
+| LLM prompt injection (direct and indirect) | Medium | Multi-layer defense (input validation, system prompt hardening, shell restriction, output sanitization); not fully preventable without Amazon Bedrock Guardrails |
+| No CloudTrail-level audit for MCP tool calls | Low | Gateway logs tool invocations; enable CloudTrail for full API-level audit in production |
+| Reports written to local filesystem unencrypted | Low | Ephemeral storage; use Amazon S3 with SSE-KMS for production report storage |
+| No automatic OAuth credential rotation | Low | Credentials in Secrets Manager support rotation; implement `rotation_lambda` for production |
+
+### Shared Responsibility
+
+This project follows the [AWS Shared Responsibility Model](https://aws.amazon.com/compliance/shared-responsibility-model/). AWS is responsible for security **of** the cloud — the underlying infrastructure, Amazon Bedrock service, AgentCore Runtime, Lambda execution environment, and managed encryption. You are responsible for security **in** the cloud, including:
+
+- Configuring IAM roles with least-privilege permissions appropriate to your environment
+- Securing OAuth credentials (stored in AWS Secrets Manager by default)
+- Reviewing AI-generated recommendations before implementing any infrastructure changes
+- Enabling additional controls (VPC endpoints, AWS WAF, CMK encryption, CloudTrail) for production use
+- Configuring [Amazon Bedrock Guardrails](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html) for additional prompt injection protection
+- Managing access to generated reports containing sensitive infrastructure findings
+
+### Production Deployment
+
+For production use, implement the following additional controls:
+
+| Category | Action |
+|---|---|
+| **Network isolation** | Deploy Lambda MCP servers in a VPC with VPC endpoints for AWS services (RDS, CloudWatch, Cost Explorer, Bedrock) |
+| **WAF protection** | Add AWS WAF to the AgentCore Runtime endpoint with rate-limiting rules and IP allowlisting |
+| **Per-Lambda IAM roles** | Create separate execution roles per MCP server (AwsDocs Lambda needs no RDS/CW/CE access) |
+| **Encryption at rest** | Store reports in Amazon S3 with SSE-KMS; use customer-managed keys for audit compliance |
+| **Credential rotation** | Configure automatic rotation for Cognito client credentials via Secrets Manager rotation Lambda |
+| **Audit logging** | Enable AWS CloudTrail for all API calls; enable Amazon CloudWatch Logs Insights for agent trace analysis |
+| **Bedrock Guardrails** | Configure content filters, denied topics, and PII detection to harden LLM interactions |
+| **Budget alarms** | Set AWS Budgets alerts for Amazon Bedrock inference costs to detect anomalous usage |
+| **Monitoring** | Create Amazon CloudWatch dashboards for invocation count, token usage, error rates, and latency |
+
+For the complete threat model and security design, see [`docs/SECURITY.md`](docs/SECURITY.md).
+For AI-specific security controls and bias considerations, see [`docs/AI_SECURITY.md`](docs/AI_SECURITY.md).
 
 ## Clean up instructions
 
