@@ -276,17 +276,18 @@ def safe_shell(command: str, stdin_content: str = "", non_interactive: bool = Tr
     if not command or not command.strip():
         return "Error: empty command"
 
-    # Execute via subprocess with shell=True to support quoted arguments
-    # (e.g., python3 -c "import matplotlib; ...")
+    # Execute via subprocess with shell=False for security.
+    # shlex.split handles quoted arguments (e.g., python3 -c "import matplotlib; ...")
     import subprocess as _sp
+    import shlex
     try:
+        parts = shlex.split(command)
         result = _sp.run(
-            command,
+            parts,
             input=stdin_content if stdin_content else None,
             capture_output=True,
             text=True,
             timeout=120,
-            shell=True,
             cwd=_ctx.output_dir if _ctx and _ctx.output_dir else None,
         )
         if result.returncode != 0:
