@@ -278,6 +278,7 @@ def safe_shell(command: str, stdin_content: str = "", non_interactive: bool = Tr
 
     # Execute via subprocess with shell=False for security.
     # shlex.split handles quoted arguments (e.g., python3 -c "import matplotlib; ...")
+    # nosemgrep: dangerous-subprocess-use-audit
     import subprocess as _sp
     import shlex
     try:
