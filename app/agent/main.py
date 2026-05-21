@@ -278,12 +278,11 @@ def safe_shell(command: str, stdin_content: str = "", non_interactive: bool = Tr
 
     # Execute via subprocess with shell=False for security.
     # shlex.split handles quoted arguments (e.g., python3 -c "import matplotlib; ...")
-    # nosemgrep: dangerous-subprocess-use-audit
     import subprocess as _sp
     import shlex
     try:
         parts = shlex.split(command)
-        result = _sp.run(
+        result = _sp.run(  # nosemgrep: dangerous-subprocess-use-audit
             parts,
             input=stdin_content if stdin_content else None,
             capture_output=True,
