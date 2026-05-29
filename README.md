@@ -306,19 +306,6 @@ python main.py --local "Full review of prod-cluster in account <ACCOUNT_B_ID>"
 | ECR image security | Immutable tags + scan-on-push | Tags cannot be overwritten; vulnerabilities detected on push |
 | Container images | Official AWS base images | `public.ecr.aws/lambda/python:3.12` with timestamp-based unique tags |
 
-### Known Risks
-
-| Risk | Severity | Mitigation |
-|---|---|---|
-| Unauthenticated access to Runtime endpoint | High | AgentCore Runtime enforces IAM SigV4 / Cognito JWT at the service level — requests without valid credentials are rejected with HTTP 401 before reaching agent code. Gateway `authorizerType` set to `"OAUTH"` in `agentcore.json`. Forged/expired tokens are rejected by Cognito token validation. |
-| No VPC isolation for Lambda MCP servers | Medium | Functions access only AWS service endpoints via HTTPS; add VPC endpoints for production |
-| No AWS WAF on AgentCore Runtime endpoint | Medium | Code-level rate limiting implemented; add WAF for IP-based blocking in production |
-| Shared IAM execution role across 5 Lambdas | Medium | All Lambdas need the same read-only permissions; split roles for defense-in-depth in production |
-| LLM prompt injection (direct and indirect) | Medium | Multi-layer defense (input validation, system prompt hardening, shell restriction, output sanitization); not fully preventable without Amazon Bedrock Guardrails |
-| No CloudTrail-level audit for MCP tool calls | Low | Gateway logs tool invocations; enable CloudTrail for full API-level audit in production |
-| Reports written to local filesystem unencrypted | Low | Ephemeral storage; use Amazon S3 with SSE-KMS for production report storage |
-| No automatic OAuth credential rotation | Low | Credentials in Secrets Manager support rotation; implement `rotation_lambda` for production |
-
 ### Shared Responsibility
 
 This project follows the [AWS Shared Responsibility Model](https://aws.amazon.com/compliance/shared-responsibility-model/). AWS is responsible for security **of** the cloud — the underlying infrastructure, Amazon Bedrock service, AgentCore Runtime, Lambda execution environment, and managed encryption. You are responsible for security **in** the cloud, including:
