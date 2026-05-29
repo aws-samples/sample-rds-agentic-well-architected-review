@@ -206,7 +206,7 @@ For more details, see the [Amazon Bedrock AgentCore observability documentation]
 
 To analyze Amazon RDS/Aurora resources in a different AWS account (Account B) from where the agent is deployed (Account A), follow these steps in priority order:
 
-#### Step 1 (CRITICAL — Do First): Create the role in Account B
+#### Step 1 : Create the role in Account B
 
 Create the cross-account role in Account B before granting assume permissions in Account A. This prevents dangling references.
 
